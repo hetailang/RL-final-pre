@@ -16,6 +16,20 @@ mdc: true
 RL Mid-term Presentation  
 2026.06.03
 
+<style>
+.slidev-layout.cover {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.slidev-layout.cover h1,
+.slidev-layout.cover h2,
+.slidev-layout.cover p {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+</style>
+
 ---
 layout: center
 ---
