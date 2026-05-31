@@ -1,6 +1,6 @@
 ---
 theme: seriph
-title: Constraint-Conditioned Actor-Critic for Offline Safe RL
+title: Learning Safe Policies from Offline Data under Dynamic Safety Budgets
 info: RL Mid-term Presentation
 class: text-slate-950
 drawings:
@@ -9,9 +9,9 @@ transition: slide-left
 mdc: true
 ---
 
-# Constraint-Conditioned Actor-Critic for Offline Safe Reinforcement Learning
+# Learning Safe Policies from Offline Data under Dynamic Safety Budgets
 
-## Offline Safe RL under Dynamic Safety Budgets
+## A Constraint-Conditioned Approach to Offline Safe RL
 
 RL Mid-term Presentation  
 2026.06.03
