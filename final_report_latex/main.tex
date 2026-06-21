@@ -1,0 +1,523 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black
+}
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\captionsetup{font=small,labelfont=bf}
+\emergencystretch=3em
+
+\newcommand{\ccac}{\textsc{CCAC}}
+\newcommand{\ours}{\textsc{Focal+Soft}}
+\newcommand{\ind}{\mathrm{IND}}
+\newcommand{\ood}{\mathrm{OOD}}
+\newcommand{\qc}{Q_c}
+
+\title{\textbf{A Small-Scale Extension of CCAC with Improved OOD Classification}\\
+\large RL Course Final Report}
+\author{
+\begin{tabular}{ll}
+Name: \underline{\hspace{3cm}} & Student ID: \underline{\hspace{3cm}} \\
+Name: \underline{\hspace{3cm}} & Student ID: \underline{\hspace{3cm}} \\
+Name: \underline{\hspace{3cm}} & Student ID: \underline{\hspace{3cm}} \\
+Name: \underline{\hspace{3cm}} & Student ID: \underline{\hspace{3cm}}
+\end{tabular}
+}
+\date{June 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Offline safe reinforcement learning aims to learn high-reward policies from a
+fixed dataset while satisfying safety constraints. Constraint-Conditioned
+Actor-Critic (\ccac) addresses this problem by conditioning the actor and
+critics on the remaining safety budget, allowing one trained policy to be
+evaluated under multiple target costs. This report presents a course-project
+scale extension of an existing \ccac{} implementation. The extension replaces
+the original binary cross-entropy loss for the OOD classifier with focal loss
+and uses the classifier output as a soft weight in the OOD cost-critic update.
+The evaluation follows a three-level pipeline. Test A trains only the OOD
+classifier and measures unsafe/OOD false negatives. Test B trains a simplified
+cost critic and measures matched-budget OOD-vs-IND cost separation. Test C runs
+50k-update full policy training and evaluates reward and realized cost under
+multiple target costs. The results show stable mechanism-level improvements:
+the proposed variant substantially reduces false negative rates on BallRun and
+CarRun and improves matched-budget cost-critic separation on CarRun across two
+seeds. However, full policy results are mixed. The variant improves reward or
+strict-budget safety in several BallRun settings, but it fails on BallRun seed
+2 at target cost 1 and does not solve CarRun policy safety. Therefore, the
+\ours{} variant should be viewed as a useful diagnostic and small-scale
+extension rather than a robust new offline safe RL algorithm.
+\end{abstract}
+
+\noindent\textbf{Keywords:} offline safe reinforcement learning; CCAC; OOD
+detection; focal loss; cost critic; constraint-conditioned policy
+
+\section*{Member Contributions}
+
+The project work was divided into four main parts. The responsible members are
+left blank for now and can be filled in before submission.
+
+\begin{table}[H]
+  \centering
+  \caption*{Main responsibilities}
+  \begin{tabularx}{0.9\textwidth}{clX}
+    \toprule
+    No. & Project part & Responsible member \\
+    \midrule
+    1 & Project material collection & \underline{\hspace{4cm}} \\
+    2 & Code implementation & \underline{\hspace{4cm}} \\
+    3 & Presentation delivery & \underline{\hspace{4cm}} \\
+    4 & Experimental report writing & \underline{\hspace{4cm}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+The entries above describe the main stage each student was responsible for.
+Beyond these primary responsibilities, all group members participated in idea
+discussion, project iteration, result interpretation, and final refinement. The
+overall contribution ratio is therefore considered equal across the four
+members, namely 25\% per member.
+
+\section{Introduction}
+
+Safe reinforcement learning optimizes task reward while controlling cumulative
+safety cost. In the offline setting, the learner is restricted to a fixed
+dataset and cannot interact with the environment to correct high-risk actions.
+This makes distribution shift especially problematic: when the learned policy
+selects actions outside the support of the offline data, value estimation can
+become unreliable and safety constraints may be violated during evaluation.
+
+\ccac{} is a recent offline safe RL method that learns a
+constraint-conditioned actor-critic policy \cite{guo2025ccac}. It treats the
+remaining safety budget \(\kappa_t\) as part of the input to the policy,
+critics, and generative model. As a result, the same trained policy can be
+evaluated zero-shot under different target cost thresholds. In the original
+\ccac{} design, a conditional variational autoencoder (CVAE) generates
+budget-conditioned state-action samples, an OOD classifier identifies generated
+out-of-distribution samples, and the cost critic receives conservative updates
+on risky generated samples.
+
+This project focuses on a small but safety-relevant issue in the \ccac{}
+pipeline. If the OOD classifier misses unsafe or out-of-distribution samples,
+the cost critic may not receive enough conservative safety signal, and the
+final policy may remain unsafe. The original implementation trains the
+classifier with binary cross entropy (BCE) and uses a hard threshold to select
+OOD samples. A hard OOD decision treats near-threshold samples very
+differently, for example assigning different behavior to scores 0.49 and
+0.51. In safety-critical settings, false negatives are particularly dangerous:
+an unsafe OOD sample classified as in-distribution may avoid conservative cost
+regularization.
+
+Motivated by this observation, this report compares original \ccac{} with one
+selected variant:
+\begin{itemize}
+  \item Baseline: original \ccac{}, with \texttt{classifier\_loss=bce} and
+  \texttt{ood\_mode=hard}.
+  \item Ours: \ours{}, with \texttt{classifier\_loss=focal},
+  \texttt{ood\_mode=soft}, \texttt{focal\_alpha=0.75}, and
+  \texttt{focal\_gamma=2.0}.
+\end{itemize}
+
+The contribution of this project is threefold. First, it implements two
+lightweight modifications to \ccac{}: a focal-loss OOD classifier and a soft
+OOD weighting rule for the cost-critic update. Second, it evaluates the change
+through a three-level validation pipeline that separates classifier behavior,
+cost-critic diagnostics, and final policy performance. Third, it reports both
+positive and negative evidence. The mechanism-level results are consistently
+better, but the policy-level results are not uniformly safer.
+
+\section{Background}
+
+\subsection{Offline Safe Reinforcement Learning}
+
+Offline safe RL can be formulated as a constrained optimization problem:
+\begin{equation}
+  \max_{\pi} \ \mathbb{E}_{\pi}\left[R(\tau)\right],
+  \quad
+  \mathrm{s.t.}\quad
+  \mathbb{E}_{\pi}\left[C(\tau)\right] \le \epsilon,
+  \label{eq:offline-safe-rl}
+\end{equation}
+where \(R(\tau)\) is the trajectory return, \(C(\tau)\) is the cumulative
+safety cost, and \(\epsilon\) is the target cost threshold. Since the training
+dataset is fixed, the learned policy cannot safely explore the environment.
+This makes distributional shift and value extrapolation central challenges.
+The DSRL benchmark \cite{liu2024dsrl} provides a suite of offline safe RL tasks
+and reports reward, cost, and normalized scores for systematic evaluation.
+
+\subsection{Review of CCAC}
+
+\ccac{} conditions policy learning on the remaining safety budget. Given
+budget \(\kappa_t\), the policy is written as
+\begin{equation}
+  \pi_\theta(a_t \mid s_t, \kappa_t),
+  \qquad
+  \kappa_{t+1} = \kappa_t - c_t.
+  \label{eq:budget-update}
+\end{equation}
+This design allows one actor to adapt to multiple target cost thresholds at
+evaluation time.
+
+The algorithm consists of four main components. A CVAE generates
+budget-conditioned state-action samples. An OOD classifier identifies generated
+samples that are outside the data distribution. Reward and cost critics
+estimate return and safety cost. The actor is trained with a Lagrangian-style
+objective that balances reward maximization and predicted cost control. For
+safety, the interaction between the OOD classifier and the cost critic is
+especially important, because conservative cost updates on generated samples
+shape how the learned policy avoids risky actions outside the dataset support.
+
+\section{Method}
+
+\subsection{Focal OOD Classifier}
+
+The original implementation trains the OOD classifier using BCE. This project
+replaces it with focal loss \cite{lin2017focal}:
+\begin{equation}
+  \mathrm{FL}(p_t)
+  =
+  \alpha_t (1-p_t)^\gamma \mathrm{BCE}(p,y),
+  \label{eq:focal}
+\end{equation}
+where \(p\) is the classifier's predicted OOD probability, \(y\in\{0,1\}\) is
+the binary label, \(p_t=p\) when \(y=1\), and \(p_t=1-p\) otherwise. The
+experiment uses \(\alpha=0.75\) and \(\gamma=2.0\). Focal loss down-weights
+easy examples and gives relatively more weight to hard examples. In this
+project, the goal is to reduce false negatives, namely unsafe/OOD samples that
+are incorrectly treated as in-distribution.
+
+\subsection{Soft OOD Weighting}
+
+The original hard OOD mode uses a threshold:
+\begin{equation}
+  w_{\ood}(s,a,\kappa)
+  =
+  \mathbb{I}\left[h_\psi(s,a,\kappa) \ge \tau\right],
+  \label{eq:hard-ood}
+\end{equation}
+where \(h_\psi\) is the OOD classifier and \(\tau=0.5\). The proposed soft mode
+uses the classifier output directly as a weight:
+\begin{equation}
+  w_{\ood}(s,a,\kappa)
+  =
+  \mathrm{clamp}\left(h_\psi(s,a,\kappa),0,1\right).
+  \label{eq:soft-ood}
+\end{equation}
+This avoids a discontinuous decision around a single threshold. Suspicious
+samples that do not exceed the hard threshold can still contribute to the OOD
+cost signal.
+
+\subsection{Effect on Cost-Critic Learning}
+
+In \ccac{}, generated OOD samples are used to impose a conservative
+Lagrangian-style constraint on the cost critic. With soft OOD weighting, the
+OOD cost loss can be interpreted as
+\begin{equation}
+  \mathcal{L}_{\ood}
+  =
+  - w_{\ood}(s,a,\kappa)\lambda_\phi(\kappa)
+  \left(\qc(s,a,\kappa)-\kappa\right).
+  \label{eq:ood-cost-loss}
+\end{equation}
+Samples with higher OOD scores receive stronger conservative updates. Samples
+near the threshold are no longer discarded entirely.
+
+\section{Experimental Setup}
+
+\subsection{Tasks and Compared Methods}
+
+The experiments use DSRL offline safe RL tasks. The main task is
+\texttt{OfflineBallRun-v0}, which is used for full policy comparison over
+seeds \(0/1/2\). The second task is \texttt{OfflineCarRun-v0}, which is used
+for repeated mechanism-level experiments over seeds \(0/1\) and one seed-0
+full-policy check. The CarRun dataset is a locally supplied
+\texttt{SafetyCarRun-v0-40-651.hdf5} file with 130200 transitions. A planned
+BallCircle fallback task was not included because the public dataset server
+returned HTTP 502 during the final expansion.
+
+Table~\ref{tab:protocol} summarizes the three-level validation pipeline. Test
+A and Test B do not replace full policy evaluation. Instead, they isolate
+whether the classifier and cost critic change in the intended direction before
+the method is evaluated as a full policy.
+
+\begin{table}[H]
+  \centering
+  \caption{Experiment protocol and training budget}
+  \label{tab:protocol}
+  \begin{tabularx}{\textwidth}{llclX}
+    \toprule
+    Test & Task & Seeds & Steps & Purpose \\
+    \midrule
+    Test A & BallRun, CarRun & BallRun 0; CarRun 0/1 & 5000 &
+    OOD classifier diagnostics, focusing on FNR. \\
+    Test B & BallRun, CarRun & BallRun 0; CarRun 0/1 & 10000 &
+    Matched-budget cost-critic separation. \\
+    Test C & BallRun & 0/1/2 & 50000 &
+    Full policy comparison. \\
+    Test C & CarRun & 0 & 50000 &
+    Second-task policy-level check. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Metrics}
+
+Test A reports AUROC, AUPRC, false negative rate (FNR), false positive rate
+(FPR), and expected calibration error (ECE). The most important safety-side
+metric is FNR, because it measures how often unsafe/OOD samples are incorrectly
+treated as in-distribution.
+
+Test B reports three cost-critic diagnostics:
+\begin{itemize}
+  \item \texttt{qc\_matched\_gap}: mean OOD \(\qc\) minus mean matched IND
+  \(\qc\);
+  \item \texttt{qc\_selected\_matched\_gap}: mean selected OOD \(\qc\) minus
+  mean matched IND \(\qc\);
+  \item \texttt{ood\_selected\_rate}: the fraction of generated samples selected
+  or effectively weighted as OOD.
+\end{itemize}
+
+Test C uses \texttt{eval\_ccac.py} to evaluate target costs
+\([1,2,5,10]\), with 20 episodes per target cost. A target is counted as safe
+if \(\mathrm{real\_cost}\le\mathrm{target\_cost}\). The ``safe targets''
+column reports how many of the four target costs satisfy this criterion.
+
+\subsection{Environment}
+
+The experiment records use Python 3.8, PyTorch 2.4.1+cu121, Gymnasium, DSRL,
+and OSRL. The main GPU is an NVIDIA H100 with 80GB HBM3 memory. Training uses
+\texttt{WANDB\_MODE=offline}, and the local HDF5 dataset directory is specified
+through \texttt{DSRL\_DATASET\_DIR}.
+
+\section{Results}
+
+\subsection{Test A: OOD Classifier}
+
+Table~\ref{tab:test-a} shows the classifier-only diagnostics. The \ours{}
+variant substantially reduces FNR in all three settings. On BallRun seed 0,
+FNR decreases from 0.10380 to 0.03565. On CarRun seed 0, it decreases from
+0.13206 to 0.05261. On CarRun seed 1, it decreases from 0.18108 to 0.06185.
+This supports the first mechanism hypothesis: focal loss makes the classifier
+miss fewer unsafe/OOD samples.
+
+\begin{table}[H]
+  \centering
+  \caption{Test A: OOD classifier metrics}
+  \label{tab:test-a}
+  \resizebox{\textwidth}{!}{
+  \begin{tabular}{llrrrrrr}
+    \toprule
+    Task & Method & Seed & AUROC & AUPRC & FNR & FPR & ECE \\
+    \midrule
+    BallRun & original & 0 & 0.94270 & 0.93778 & 0.10380 & 0.17205 & 0.02227 \\
+    BallRun & \ours & 0 & 0.93943 & 0.93326 & 0.03565 & 0.28166 & 0.10002 \\
+    CarRun & original & 0 & 0.92558 & 0.88536 & 0.13206 & 0.17275 & 0.03152 \\
+    CarRun & \ours & 0 & 0.92649 & 0.88579 & 0.05261 & 0.28111 & 0.13474 \\
+    CarRun & original & 1 & 0.92868 & 0.89186 & 0.18108 & 0.12899 & 0.01671 \\
+    CarRun & \ours & 1 & 0.92992 & 0.89303 & 0.06185 & 0.25883 & 0.12755 \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+The improvement is not free. Compared with original \ccac{}, \ours{} has a
+higher FPR and worse ECE. This means that the classifier becomes more
+conservative but less calibrated. Therefore, the correct interpretation is a
+safety-oriented trade-off rather than a uniformly better classifier.
+
+\subsection{Test B: Matched-Budget Cost-Critic Separation}
+
+Test B asks whether generated OOD samples receive higher cost estimates under
+the same query budget. The results are shown in Table~\ref{tab:test-b}. On
+CarRun seed 0 and seed 1, \ours{} improves both
+\texttt{qc\_matched\_gap} and \texttt{qc\_selected\_matched\_gap}, suggesting
+that the more conservative classifier and soft OOD weighting strengthen the OOD
+cost signal. On BallRun, original \ccac{} has a negative
+\texttt{qc\_matched\_gap}, while \ours{} produces a positive matched gap. This
+indicates that the hard-mask baseline can have unstable cost-critic scale in
+this small experiment.
+
+\begin{table}[H]
+  \centering
+  \caption{Test B: matched-budget cost-critic separation}
+  \label{tab:test-b}
+  \resizebox{\textwidth}{!}{
+  \begin{tabular}{llrrrr}
+    \toprule
+    Task & Method & Seed & \texttt{qc\_matched\_gap} &
+    \texttt{qc\_selected\_matched\_gap} & \texttt{ood\_selected\_rate} \\
+    \midrule
+    BallRun & original & 0 & -26.829 & 88.324 & 0.4186 \\
+    BallRun & \ours & 0 & 8.711 & 6.131 & 0.7555 \\
+    CarRun & original & 0 & 2.641 & 4.929 & 0.3106 \\
+    CarRun & \ours & 0 & 3.632 & 6.644 & 0.4868 \\
+    CarRun & original & 1 & 3.267 & 6.069 & 0.2267 \\
+    CarRun & \ours & 1 & 5.031 & 8.027 & 0.4255 \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+\ours{} also has a higher \texttt{ood\_selected\_rate}, which is consistent
+with its more conservative classifier behavior in Test A. Overall, Test B
+supports the second mechanism hypothesis: soft OOD weighting improves
+matched-budget OOD-vs-IND cost separation.
+
+\subsection{Test C: Full Policy Evaluation}
+
+The full policy results are more complicated. Table~\ref{tab:test-c}
+summarizes average reward, average realized cost, and safe targets across the
+four evaluation budgets.
+
+\begin{table}[H]
+  \centering
+  \caption{Test C: full policy summary}
+  \label{tab:test-c}
+  \begin{tabular}{llrrrl}
+    \toprule
+    Task & Method & Seed & Avg reward & Avg real cost & Safe targets \\
+    \midrule
+    BallRun & original & 0 & 347.274 & 0.000 & 4/4 \\
+    BallRun & \ours & 0 & 422.771 & 0.000 & 4/4 \\
+    BallRun & original & 1 & 464.176 & 19.000 & 3/4 \\
+    BallRun & \ours & 1 & 420.406 & 3.250 & 4/4 \\
+    BallRun & original & 2 & 409.096 & 0.000 & 4/4 \\
+    BallRun & \ours & 2 & 443.294 & 9.650 & 3/4 \\
+    CarRun & original & 0 & 859.456 & 181.200 & 0/4 \\
+    CarRun & \ours & 0 & 913.301 & 183.213 & 0/4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+On BallRun, \ours{} provides useful but not uniform improvements. In seed 0,
+it improves reward under all target costs while keeping zero realized cost. In
+seed 1, it fixes a strict-budget failure: original \ccac{} has real cost 74 at
+target cost 1, while \ours{} has real cost 0. However, it loses reward at
+target costs 5 and 10. In seed 2, \ours{} improves reward at target costs 2 and
+5 while remaining safe there, but it fails badly at target cost 1 with real
+cost 33.6.
+
+CarRun is the clearest negative policy result. Table~\ref{tab:carrun-policy}
+shows the key numbers. \ours{} obtains higher reward than original \ccac{}, but
+realized cost does not improve. Both methods exceed all target cost thresholds
+by a large margin.
+
+\begin{table}[H]
+  \centering
+  \caption{Key CarRun policy results}
+  \label{tab:carrun-policy}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Method & Target 1 cost & Target 5 cost & Avg reward & Safe targets \\
+    \midrule
+    original & 181.00 & 181.25 & 859.456 & 0/4 \\
+    \ours & 183.05 & 183.55 & 913.301 & 0/4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This result is important because it shows that better mechanism-level OOD
+diagnostics do not automatically guarantee safer policy behavior.
+
+\section{Discussion}
+
+The main finding is the gap between mechanism-level improvements and
+policy-level behavior. Test A and Test B show that \ours{} changes the internal
+OOD safety signal in the intended direction. The classifier misses fewer
+unsafe/OOD samples, and the cost critic assigns higher cost estimates to OOD
+samples under matched budgets. This supports the design rationale behind focal
+loss and soft OOD weighting.
+
+However, the policy-level results are not stable. In some BallRun settings,
+\ours{} increases reward or fixes strict-budget safety failures. In other
+settings, especially BallRun seed 2 at target cost 1, it introduces a clear
+safety failure. On CarRun, both original \ccac{} and \ours{} remain unsafe
+after 50k updates. This suggests that the lightweight OOD modification is not
+sufficient to solve budget-conditioned safe control on harder tasks.
+
+The three-level evaluation pipeline is therefore useful. If only Test A and
+Test B were reported, the result would look more positive than it should. If
+only Test C were reported, it would be difficult to determine whether failures
+came from the classifier, cost critic, or actor training. Separating mechanism
+diagnostics from full policy evaluation makes the final conclusion more
+interpretable.
+
+\section{Limitations}
+
+This project has several limitations:
+\begin{itemize}
+  \item Full policy training uses only 50k updates, which is much smaller than a
+  full benchmark-scale reproduction.
+  \item Policy-level evaluation covers only BallRun seeds \(0/1/2\) and CarRun
+  seed 0.
+  \item Focal loss reduces FNR but increases FPR and worsens ECE, meaning that
+  classifier calibration becomes worse.
+  \item Soft OOD weighting improves the mechanism-level OOD cost signal, but it
+  does not solve the CarRun policy safety failure.
+  \item The project does not systematically compare against other offline safe
+  RL or offline RL baselines such as CQL \cite{kumar2020cql} and CDT
+  \cite{liu2023cdt}.
+  \item The BallCircle fallback task was excluded because the public dataset
+  server failed during the final expansion.
+\end{itemize}
+
+\section{Reproducibility Notes}
+
+The main experiment scripts are under
+\path{CCAC/validation_experiments/scripts/}. Before running experiments, the
+environment variables \texttt{PYTHONPATH}, \texttt{WANDB\_MODE=offline}, and
+\texttt{DSRL\_DATASET\_DIR} should be set. The main entry points are:
+\begin{itemize}
+  \item \path{run_test_a_classifier.sh}: classifier-only diagnostics;
+  \item \path{run_test_b_cost_critic.sh}: cost-critic separation;
+  \item \path{train_original_ccac_50k.sh}: original \ccac{} 50k baseline;
+  \item \path{OSRL/examples/train/train_ccac.py}: full policy training;
+  \item \path{OSRL/examples/eval/eval_ccac.py}: multi-target-cost policy
+  evaluation.
+\end{itemize}
+Full commands, run directories, and raw outputs are recorded in
+\path{CCAC/validation_experiments/commands.md} and
+\path{CCAC/validation_experiments/results.md}. Report-ready tables are recorded
+in \path{CCAC/validation_experiments/final_report_results.md}.
+
+\section{Conclusion}
+
+This report presents a small-scale extension of \ccac{} that trains the OOD
+classifier with focal loss and uses soft OOD scores in the cost-critic update.
+The proposed variant improves mechanism-level diagnostics: it reduces unsafe
+OOD false negatives and improves matched-budget cost-critic separation.
+However, full policy behavior remains mixed. The method improves several
+BallRun settings but also has a clear strict-budget failure, and it does not
+solve CarRun safety.
+
+The appropriate conclusion is therefore cautious. \ours{} is a useful
+diagnostic and small-scale extension, not a robust new offline safe RL
+algorithm. Future work should evaluate the idea on more DSRL tasks, more seeds,
+longer training budgets, and stronger baselines, while also studying the
+relationship between classifier calibration, OOD cost regularization strength,
+and policy stability.
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}
