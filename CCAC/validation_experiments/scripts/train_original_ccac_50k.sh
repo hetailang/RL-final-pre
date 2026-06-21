@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="/mnt/afs/L202500188/CCAC"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TASK="${TASK:-OfflineBallRun-v0}"
 SEED="${SEED:-0}"
@@ -15,7 +16,7 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 SUFFIX="${SUFFIX:-sanity50k}"
 
 cd "$REPO_ROOT/OSRL/examples/train"
-source ../../../.venv/bin/activate
+PYTHON="$REPO_ROOT/.venv/bin/python"
 
 export PYTHONPATH="$REPO_ROOT/OSRL:$REPO_ROOT/DSRL:${PYTHONPATH:-}"
 export WANDB_MODE="${WANDB_MODE:-offline}"
@@ -32,8 +33,9 @@ echo "NUM_WORKERS=$NUM_WORKERS"
 echo "DEVICE=$DEVICE"
 echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
 echo "DSRL_DATASET_DIR=$DSRL_DATASET_DIR"
+echo "PYTHON=$PYTHON"
 
-python train_ccac.py \
+"$PYTHON" train_ccac.py \
   --task "$TASK" \
   --device "$DEVICE" \
   --seed "$SEED" \

@@ -1,19 +1,19 @@
 # Experiment Commands
 
-Run commands from `/mnt/afs/L202500188/CCAC` unless otherwise noted.
+Run commands from `/mnt/afs/L202500188/RL-mid-pre/CCAC` unless otherwise noted.
 
 ## 0. Environment And GPU Check
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
-source .venv/bin/activate
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 
 export PYTHONPATH=$PWD/OSRL:$PWD/DSRL:$PYTHONPATH
 export WANDB_MODE=offline
 export CUDA_VISIBLE_DEVICES=0
 export DSRL_DATASET_DIR=$PWD/datasets/dsrl
+PYTHON=$PWD/.venv/bin/python
 
-python -c "import torch, dsrl, osrl; print('python ok'); print('cuda', torch.cuda.is_available(), torch.cuda.device_count()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
+"$PYTHON" -c "import torch, dsrl, osrl; print('python ok'); print('cuda', torch.cuda.is_available(), torch.cuda.device_count()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
 ```
 
 Expected:
@@ -25,7 +25,7 @@ Expected:
 If the GPU is H100, also run a minimal CUDA kernel test:
 
 ```bash
-python - <<'PY'
+"$PYTHON" - <<'PY'
 import torch
 print(torch.__version__)
 print(torch.version.cuda)
@@ -43,9 +43,9 @@ build is not usable on H100. The current OSRL package pins `torch~=1.13.0`, whic
 does not support H100. Fix the environment before running training:
 
 ```bash
-pip uninstall -y torch torchvision torchaudio
-pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
-python - <<'PY'
+.venv/bin/python -m pip uninstall -y torch torchvision torchaudio
+.venv/bin/python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
+.venv/bin/python - <<'PY'
 import torch
 print(torch.__version__)
 print(torch.version.cuda)
@@ -70,38 +70,45 @@ If the dataset server is unstable, download the dataset first. Training will use
 the local file when it exists under `DSRL_DATASET_DIR`.
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 mkdir -p datasets/dsrl
 
-source .venv/bin/activate
-export DSRL_DATASET_DIR=/mnt/afs/L202500188/CCAC/datasets/dsrl
+export DSRL_DATASET_DIR=/mnt/afs/L202500188/RL-mid-pre/CCAC/datasets/dsrl
+PYTHON=/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python
 
-python validation_experiments/scripts/download_dsrl_dataset.py --task OfflineBallRun-v0 --retries 5 --sleep-seconds 20
+"$PYTHON" validation_experiments/scripts/download_dsrl_dataset.py --task OfflineBallRun-v0 --retries 5 --sleep-seconds 20
 ```
 
 Alternative first-task datasets:
 
 ```bash
-python validation_experiments/scripts/download_dsrl_dataset.py --task OfflineCarRun-v0 --retries 5 --sleep-seconds 20
-python validation_experiments/scripts/download_dsrl_dataset.py --task OfflineBallCircle-v0 --retries 5 --sleep-seconds 20
+"$PYTHON" validation_experiments/scripts/download_dsrl_dataset.py --task OfflineCarRun-v0 --retries 5 --sleep-seconds 20
+"$PYTHON" validation_experiments/scripts/download_dsrl_dataset.py --task OfflineBallCircle-v0 --retries 5 --sleep-seconds 20
 ```
 
 After a download finishes, verify that h5py can open the file:
 
 ```bash
-python -c "import h5py; p='datasets/dsrl/SafetyBallRun-v0-80-940.hdf5'; f=h5py.File(p, 'r'); print(p, list(f.keys())[:10]); f.close()"
+"$PYTHON" -c "import h5py; p='datasets/dsrl/SafetyBallRun-v0-80-940.hdf5'; f=h5py.File(p, 'r'); print(p, list(f.keys())[:10]); f.close()"
+```
+
+For the completed second-task CarRun experiments, verify the locally supplied
+dataset with:
+
+```bash
+"$PYTHON" -c "import h5py; p='datasets/dsrl/SafetyCarRun-v0-40-651.hdf5'; f=h5py.File(p, 'r'); print(p, {k: f[k].shape for k in f.keys()}); f.close()"
 ```
 
 ```bash
-cd /mnt/afs/L202500188/CCAC/OSRL/examples/train
-source ../../../.venv/bin/activate
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train
 
-export PYTHONPATH=/mnt/afs/L202500188/CCAC/OSRL:/mnt/afs/L202500188/CCAC/DSRL:$PYTHONPATH
+export PYTHONPATH=/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL:/mnt/afs/L202500188/RL-mid-pre/CCAC/DSRL:$PYTHONPATH
 export WANDB_MODE=offline
 export CUDA_VISIBLE_DEVICES=0
-export DSRL_DATASET_DIR=/mnt/afs/L202500188/CCAC/datasets/dsrl
+export DSRL_DATASET_DIR=/mnt/afs/L202500188/RL-mid-pre/CCAC/datasets/dsrl
+PYTHON=/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python
 
-python train_ccac.py \
+"$PYTHON" train_ccac.py \
   --task OfflineBallRun-v0 \
   --device cuda:0 \
   --seed 0 \
@@ -121,7 +128,7 @@ another `update_steps`. With `update_steps=10000`, total loop count is about
 Run this after training finishes:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC/OSRL/examples/train
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train
 
 RUN_DIR=$(dirname "$(find logs -name config.yaml -print | sort | tail -1)")
 realpath "$RUN_DIR"
@@ -137,7 +144,7 @@ still not a paper reproduction, but it is a better anchor for later small
 full-policy comparison.
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 bash validation_experiments/scripts/train_original_ccac_50k.sh
 ```
 
@@ -162,7 +169,7 @@ Replace `<ABS_RUN_DIR>` with the absolute path printed above.
 For the completed `OfflineBallRun-v0` sanity run, use:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 bash validation_experiments/scripts/eval_sanity_baseline.sh
 ```
 
@@ -173,14 +180,14 @@ TARGET_COSTS="[1,2,5,10]" EVAL_EPISODES=20 DEVICE=cuda:0 bash validation_experim
 ```
 
 ```bash
-cd /mnt/afs/L202500188/CCAC/OSRL/examples/eval
-source ../../../.venv/bin/activate
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/eval
 
-export PYTHONPATH=/mnt/afs/L202500188/CCAC/OSRL:/mnt/afs/L202500188/CCAC/DSRL:$PYTHONPATH
+export PYTHONPATH=/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL:/mnt/afs/L202500188/RL-mid-pre/CCAC/DSRL:$PYTHONPATH
 export CUDA_VISIBLE_DEVICES=0
-export DSRL_DATASET_DIR=/mnt/afs/L202500188/CCAC/datasets/dsrl
+export DSRL_DATASET_DIR=/mnt/afs/L202500188/RL-mid-pre/CCAC/datasets/dsrl
+PYTHON=/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python
 
-python eval_ccac.py \
+"$PYTHON" eval_ccac.py \
   --path <ABS_RUN_DIR> \
   --target_costs 1 2 5 10 \
   --eval_episodes 10 \
@@ -190,7 +197,7 @@ python eval_ccac.py \
 If `--target_costs 1 2 5 10` fails to parse, use:
 
 ```bash
-python eval_ccac.py \
+"$PYTHON" eval_ccac.py \
   --path <ABS_RUN_DIR> \
   --target_costs '[1,2,5,10]' \
   --eval_episodes 10 \
@@ -202,7 +209,7 @@ python eval_ccac.py \
 Run all four classifier variants:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 bash validation_experiments/scripts/run_test_a_classifier.sh
 ```
 
@@ -237,8 +244,8 @@ Each run writes:
 If training completed but the final summary failed, summarize existing outputs:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
-python validation_experiments/scripts/summarize_test_a.py --output-dir validation_experiments/outputs/test_a
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
+.venv/bin/python validation_experiments/scripts/summarize_test_a.py --output-dir validation_experiments/outputs/test_a
 ```
 
 ## 5. Test B: Cost-Critic Separation
@@ -246,14 +253,14 @@ python validation_experiments/scripts/summarize_test_a.py --output-dir validatio
 Debug one variant first:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 VARIANTS="original" STEPS=200 EVAL_EVERY=100 EVAL_SAMPLES=2000 bash validation_experiments/scripts/run_test_b_cost_critic.sh
 ```
 
 Run the default Test B comparison:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 bash validation_experiments/scripts/run_test_b_cost_critic.sh
 ```
 
@@ -282,8 +289,8 @@ Each run writes:
 If training completed but the final summary failed, summarize existing outputs:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
-python validation_experiments/scripts/summarize_test_b.py --output-dir validation_experiments/outputs/test_b
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
+.venv/bin/python validation_experiments/scripts/summarize_test_b.py --output-dir validation_experiments/outputs/test_b
 ```
 
 ## 6. Test C: Small Full-Policy Variant
@@ -292,14 +299,14 @@ Test C compares the 50k original CCAC baseline with the best small-experiment
 variant from Test A/B. The first selected variant is `focal_soft`:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
-source .venv/bin/activate
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 export WANDB_MODE=offline
 export PYTHONPATH="$PWD/OSRL:$PWD/DSRL:${PYTHONPATH:-}"
 export DSRL_DATASET_DIR="$PWD/datasets/dsrl"
+PYTHON=$PWD/.venv/bin/python
 
 cd OSRL/examples/train
-python train_ccac.py \
+"$PYTHON" train_ccac.py \
   --task OfflineBallRun-v0 \
   --device cuda:0 \
   --seed 0 \
@@ -313,17 +320,20 @@ python train_ccac.py \
   --suffix test_c_focal_soft_50k
 ```
 
+Use `--task OfflineCarRun-v0` and suffix `test_c_focal_soft_50k_car_seed0` for
+the completed second-task CarRun seed-0 run.
+
 Evaluate the saved checkpoint across target costs:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
-source .venv/bin/activate
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 export PYTHONPATH="$PWD/OSRL:$PWD/DSRL:${PYTHONPATH:-}"
 export DSRL_DATASET_DIR="$PWD/datasets/dsrl"
+PYTHON=$PWD/.venv/bin/python
 
 cd OSRL/examples/eval
-python eval_ccac.py \
-  --path /mnt/afs/L202500188/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72 \
+"$PYTHON" eval_ccac.py \
+  --path /mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72 \
   --target_costs "[1,2,5,10]" \
   --eval_episodes 20 \
   --device cuda:0

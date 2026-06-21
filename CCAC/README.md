@@ -49,7 +49,7 @@ Small validation experiments for OOD classifier and cost-critic behavior are
 tracked under `validation_experiments/`. Start with:
 
 ```bash
-cd /mnt/afs/L202500188/CCAC
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC
 bash validation_experiments/scripts/train_original_ccac_50k.sh
 bash validation_experiments/scripts/run_test_a_classifier.sh
 bash validation_experiments/scripts/run_test_b_cost_critic.sh
@@ -57,7 +57,9 @@ bash validation_experiments/scripts/run_test_b_cost_critic.sh
 
 See `validation_experiments/commands.md` for exact environment setup,
 H100/PyTorch notes, dataset download fallback, and evaluation commands. Results
-and current conclusions are in `validation_experiments/results.md`.
+and current conclusions are in `validation_experiments/results.md`. A compact
+final-project expansion plan is in
+`validation_experiments/final_project_plan.md`.
 
 ## Github Reference
 - OSRL: https://github.com/liuzuxin/osrl

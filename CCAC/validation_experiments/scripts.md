@@ -113,20 +113,30 @@ Implementation notes:
 
 ## Test C: Small Full-Policy Variant
 
-Planned changes:
+Implemented through CCAC training flags:
 
-- Add controlled config flags to CCAC or a variant training script.
-- Compare original CCAC with the best variant from Test A/B.
+- `classifier_loss`
+- `ood_mode`
+- `focal_alpha`
+- `focal_gamma`
+
+The first selected variant is `classifier_loss=focal` with `ood_mode=soft`.
+This was chosen from Test A/B and has completed 50k runs on
+`OfflineBallRun-v0`, seeds `0/1/2`, plus `OfflineCarRun-v0`, seed `0`.
 
 Initial tasks:
 
 - `OfflineBallRun-v0`
-- optional `OfflineCarRun-v0`
+- `OfflineCarRun-v0`, completed after local `SafetyCarRun-v0-40-651.hdf5`
+  restore
+- fallback `OfflineBallCircle-v0`, still blocked by public dataset server HTTP
+  502 and no longer needed for the final-project scope
 
 Initial training budget:
 
-- `update_steps=20000` or `50000`
-- one seed
+- `update_steps=50000`
+- three completed `OfflineBallRun-v0` seeds
+- one completed `OfflineCarRun-v0` seed
 
 Evaluation target costs:
 
@@ -134,3 +144,26 @@ Evaluation target costs:
 - `2`
 - `5`
 - `10`
+
+Example focal-soft command:
+
+```bash
+cd /mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train
+export WANDB_MODE=offline
+export PYTHONPATH="/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL:/mnt/afs/L202500188/RL-mid-pre/CCAC/DSRL:${PYTHONPATH:-}"
+export DSRL_DATASET_DIR="/mnt/afs/L202500188/RL-mid-pre/CCAC/datasets/dsrl"
+PYTHON=/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python
+
+"$PYTHON" train_ccac.py \
+  --task OfflineBallRun-v0 \
+  --device cuda:0 \
+  --seed 1 \
+  --update_steps 50000 \
+  --eval_every 10000 \
+  --eval_episodes 10 \
+  --batch_size 512 \
+  --num_workers 4 \
+  --classifier_loss focal \
+  --ood_mode soft \
+  --suffix test_c_focal_soft_50k_seed1
+```

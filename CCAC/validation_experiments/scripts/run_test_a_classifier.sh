@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="/mnt/afs/L202500188/CCAC"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TASK="${TASK:-OfflineBallRun-v0}"
 SEED="${SEED:-0}"
@@ -15,7 +16,7 @@ OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/validation_experiments/outputs/test_a}"
 VARIANTS="${VARIANTS:-original ours_weighted ours_focal ours_focal_soft}"
 
 cd "$REPO_ROOT"
-source .venv/bin/activate
+PYTHON="$REPO_ROOT/.venv/bin/python"
 
 export PYTHONPATH="$REPO_ROOT/OSRL:$REPO_ROOT/DSRL:${PYTHONPATH:-}"
 export CUDA_VISIBLE_DEVICES
@@ -31,6 +32,7 @@ echo "BATCH_SIZE=$BATCH_SIZE"
 echo "DEVICE=$DEVICE"
 echo "OUTPUT_DIR=$OUTPUT_DIR"
 echo "VARIANTS=$VARIANTS"
+echo "PYTHON=$PYTHON"
 
 for variant in $VARIANTS; do
   case "$variant" in
@@ -58,7 +60,7 @@ for variant in $VARIANTS; do
 
   run_name="${variant}_${TASK}_seed${SEED}_steps${STEPS}"
   echo "Running $variant -> $run_name"
-  python validation_experiments/scripts/train_ood_classifier.py \
+  "$PYTHON" validation_experiments/scripts/train_ood_classifier.py \
     --task "$TASK" \
     --device "$DEVICE" \
     --seed "$SEED" \
@@ -72,4 +74,4 @@ for variant in $VARIANTS; do
     --run-name "$run_name"
 done
 
-python validation_experiments/scripts/summarize_test_a.py --output-dir "$OUTPUT_DIR"
+"$PYTHON" validation_experiments/scripts/summarize_test_a.py --output-dir "$OUTPUT_DIR"

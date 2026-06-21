@@ -10,7 +10,7 @@ Date:
 Command:
 
 ```bash
-python -c "import torch, dsrl, osrl; print('python ok'); print('cuda', torch.cuda.is_available(), torch.cuda.device_count()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
+.venv/bin/python -c "import torch, dsrl, osrl; print('python ok'); print('cuda', torch.cuda.is_available(), torch.cuda.device_count()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
 ```
 
 Output:
@@ -37,13 +37,13 @@ Task:
 Training command:
 
 ```bash
-python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 0 --update_steps 10000 --eval_every 5000 --eval_episodes 5 --batch_size 512 --num_workers 4
+/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 0 --update_steps 10000 --eval_every 5000 --eval_episodes 5 --batch_size 512 --num_workers 4
 ```
 
 Run directory:
 
 ```text
-/mnt/afs/L202500188/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff
 ```
 
 Final training/eval output:
@@ -110,7 +110,7 @@ bash validation_experiments/scripts/train_original_ccac_50k.sh
 Run directory:
 
 ```text
-/mnt/afs/L202500188/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_num_workers4_update_steps50000_sanity50k-1806/CCAC_num_workers4_update_steps50000_sanity50k-1806
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_num_workers4_update_steps50000_sanity50k-1806/CCAC_num_workers4_update_steps50000_sanity50k-1806
 ```
 
 Final training/eval output:
@@ -271,10 +271,10 @@ Variant: focal_soft
 Command:
 bash-equivalent:
 cd OSRL/examples/train
-python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 0 --update_steps 50000 --eval_every 10000 --eval_episodes 10 --batch_size 512 --num_workers 4 --classifier_loss focal --ood_mode soft --suffix test_c_focal_soft_50k
+/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 0 --update_steps 50000 --eval_every 10000 --eval_episodes 10 --batch_size 512 --num_workers 4 --classifier_loss focal --ood_mode soft --suffix test_c_focal_soft_50k
 
 Run directory:
-/mnt/afs/L202500188/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k-bb72
 
 In-training evaluation:
 step    eval/Reward         eval/Cost
@@ -301,3 +301,439 @@ Short conclusion:
 - It also substantially improves reward: original 50k multi-budget reward was about `328/345/354/363`; `focal_soft` is about `418/401/421/451`.
 - The first 10k checkpoint is still unsafe at default target cost 5 (`cost=9.1`), but from 20k onward the run satisfies the default budget and reaches zero cost from 30k onward.
 - Next validation should repeat `focal_soft` on at least one more seed or one additional task before claiming a robust policy-level improvement.
+
+## 6. Final-Project Expansion Execution Update
+
+Date:
+
+- 2026-06-21
+
+### 6.1 Second-task dataset status
+
+Planned second task:
+
+- `OfflineCarRun-v0`
+
+Fallback task:
+
+- `OfflineBallCircle-v0`
+
+Initial download status:
+
+```text
+OfflineCarRun-v0:
+attempt 1/1: http://data.offline-saferl.org/download/SafetyCarRun-v0-40-651.hdf5
+failed: HTTPError: HTTP Error 502: Bad Gateway
+
+OfflineBallCircle-v0:
+attempt 1/1: http://data.offline-saferl.org/download/SafetyBallCircle-v0-80-886.hdf5
+failed: HTTPError: HTTP Error 502: Bad Gateway
+```
+
+Conclusion:
+
+- The public DSRL server initially blocked the second-task extension.
+- The fallback was to strengthen `OfflineBallRun-v0` with additional seeds.
+- The user later supplied `datasets/dsrl/SafetyCarRun-v0-40-651.hdf5`, which
+  was verified with `h5py` and used to complete the `OfflineCarRun-v0`
+  second-task experiments.
+
+Verified local CarRun dataset:
+
+```text
+path: datasets/dsrl/SafetyCarRun-v0-40-651.hdf5
+keys: actions, costs, next_observations, observations, rewards, terminals, timeouts
+shapes:
+  actions            (130200, 2)
+  observations       (130200, 7)
+  next_observations  (130200, 7)
+  rewards            (130200,)
+  costs              (130200,)
+```
+
+### 6.2 Test C seed 1: original CCAC
+
+Command:
+
+```bash
+SEED=1 SUFFIX=sanity50k_seed1 bash validation_experiments/scripts/train_original_ccac_50k.sh
+```
+
+Run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_num_workers4_seed1_update_steps50000_sanity50k_seed1-5319/CCAC_num_workers4_seed1_update_steps50000_sanity50k_seed1-5319
+```
+
+Final in-training evaluation:
+
+```text
+eval/Reward 445.13401
+eval/Cost 0.0
+eval/Length 100.0
+train/best_idx 49999.0
+```
+
+Multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 549.0193536960556, normalized reward 0.4017195208665401, real cost 74.0, normalized cost 74.0
+target cost 2.0:  reward 408.1974360352044, normalized reward 0.29348703324995085, real cost 0.0, normalized cost 0.0
+target cost 5.0:  reward 445.09139756961804, normalized reward 0.3218428836831, real cost 0.0, normalized cost 0.0
+target cost 10.0: reward 454.3980454732856, normalized reward 0.32899575924904384, real cost 2.0, normalized cost 0.2
+```
+
+### 6.3 Test C seed 1: focal_soft
+
+Command:
+
+```bash
+cd OSRL/examples/train
+/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 1 --update_steps 50000 --eval_every 10000 --eval_episodes 10 --batch_size 512 --num_workers 4 --classifier_loss focal --ood_mode soft --suffix test_c_focal_soft_50k_seed1
+```
+
+Run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_seed1_update_steps50000_test_c_focal_soft_50k_seed1-98da/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_seed1_update_steps50000_test_c_focal_soft_50k_seed1-98da
+```
+
+In-training evaluation:
+
+```text
+step    eval/Reward          eval/Cost
+9999    364.1069901019502    0.0
+19999   376.0532617752419    0.0
+29999   406.4489091689043    0.0
+39999   453.76114704352807   0.0
+49999   420.71676534683644   4.0
+```
+
+Multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 417.09396373809466, normalized reward 0.3003246998605753, real cost 0.0, normalized cost 0.0
+target cost 2.0:  reward 419.37331437460915, normalized reward 0.3020765563445536, real cost 0.0, normalized cost 0.0
+target cost 5.0:  reward 420.72734539128066, normalized reward 0.3031172334470862, real cost 4.0, normalized cost 0.8
+target cost 10.0: reward 424.43028226101075, normalized reward 0.3059632255735625, real cost 9.0, normalized cost 0.9
+```
+
+Seed-1 conclusion:
+
+- At the strictest budget (`target cost 1`), `focal_soft` fixes the original
+  seed-1 failure: original reaches real cost `74`, while `focal_soft` reaches
+  real cost `0`.
+- At moderate and loose budgets, seed-1 is mixed: original has higher reward at
+  target costs `5/10`, while `focal_soft` stays closer to the requested budget
+  and has lower reward.
+- Together with seed 0, the current story should be framed as a compact
+  safety-oriented modification that improves strict-budget behavior, not as a
+  uniformly better policy optimizer.
+
+### 6.4 Test C seed 2: original CCAC
+
+Command:
+
+```bash
+SEED=2 SUFFIX=sanity50k_seed2 bash validation_experiments/scripts/train_original_ccac_50k.sh
+```
+
+Run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_num_workers4_seed2_update_steps50000_sanity50k_seed2-7bf2/CCAC_num_workers4_seed2_update_steps50000_sanity50k_seed2-7bf2
+```
+
+In-training evaluation:
+
+```text
+step    eval/Reward          eval/Cost
+9999    1498.691242275069    92.0
+19999   399.10973839036      0.0
+29999   389.4635429086717    0.0
+39999   412.6044835308421    0.0
+49999   410.1611913065644    0.0
+```
+
+Multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 414.77081928097175, normalized reward 0.29853918445314664, real cost 0.0, normalized cost 0.0
+target cost 2.0:  reward 361.9139645615989, normalized reward 0.2579146213958238, real cost 0.0, normalized cost 0.0
+target cost 5.0:  reward 410.1299334474489, normalized reward 0.2949723063218853, real cost 0.0, normalized cost 0.0
+target cost 10.0: reward 449.5693114453748, normalized reward 0.3252845053152753, real cost 0.0, normalized cost 0.0
+```
+
+### 6.5 Test C seed 2: focal_soft
+
+Command:
+
+```bash
+cd OSRL/examples/train
+/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python train_ccac.py --task OfflineBallRun-v0 --device cuda:0 --seed 2 --update_steps 50000 --eval_every 10000 --eval_episodes 10 --batch_size 512 --num_workers 4 --classifier_loss focal --ood_mode soft --suffix test_c_focal_soft_50k_seed2
+```
+
+Run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_seed2_update_steps50000_test_c_focal_soft_50k_seed2-a445/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_seed2_update_steps50000_test_c_focal_soft_50k_seed2-a445
+```
+
+In-training evaluation:
+
+```text
+step    eval/Reward          eval/Cost
+9999    414.9909268948315    4.8
+19999   411.47039834587196   0.0
+29999   436.85677212487417   0.0
+39999   454.8641891012907    2.0
+49999   450.4641559110547    0.0
+```
+
+Multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 440.1565901928141, normalized reward 0.3180501042126024, real cost 33.6, normalized cost 33.6
+target cost 2.0:  reward 433.00657827665265, normalized reward 0.31255476947331734, real cost 0.0, normalized cost 0.0
+target cost 5.0:  reward 450.4497128567025, normalized reward 0.3259611615945815, real cost 0.0, normalized cost 0.0
+target cost 10.0: reward 449.56158873400636, normalized reward 0.3252785698169066, real cost 5.0, normalized cost 0.5
+```
+
+Seed-2 conclusion:
+
+- At target costs `2/5/10`, `focal_soft` is reward-competitive or better than
+  original while keeping real cost within budget.
+- At target cost `1`, `focal_soft` fails badly (`real cost 33.6`) while
+  original has zero cost. This is a negative result and should be discussed.
+- The final-project claim should therefore focus on the mechanism evidence
+  from Test A/B plus a mixed but useful small-policy benchmark, not on a
+  universally dominant policy result.
+
+### 6.6 Compact policy comparison after fallback
+
+The second-task dataset was initially unavailable, so the first completed
+policy-level fallback was `OfflineBallRun-v0` over seeds `0/1/2`.
+
+```text
+seed  method       target  reward    real_cost  short note
+0     original     1       327.777   0.0        earlier 50k baseline
+0     original     2       344.685   0.0        earlier 50k baseline
+0     original     5       353.727   0.0        earlier 50k baseline
+0     original     10      362.907   0.0        earlier 50k baseline
+0     focal_soft   1       418.054   0.0        clear improvement
+0     focal_soft   2       400.559   0.0        clear improvement
+0     focal_soft   5       421.170   0.0        clear improvement
+0     focal_soft   10      451.301   0.0        clear improvement
+1     original     1       549.019   74.0       unsafe strict-budget failure
+1     original     2       408.197   0.0        safe
+1     original     5       445.091   0.0        safe
+1     original     10      454.398   2.0        safe
+1     focal_soft   1       417.094   0.0        fixes strict-budget failure
+1     focal_soft   2       419.373   0.0        safe, slightly higher reward
+1     focal_soft   5       420.727   4.0        within budget, lower reward
+1     focal_soft   10      424.430   9.0        within budget, lower reward
+2     original     1       414.771   0.0        safe
+2     original     2       361.914   0.0        safe
+2     original     5       410.130   0.0        safe
+2     original     10      449.569   0.0        safe
+2     focal_soft   1       440.157   33.6       unsafe strict-budget failure
+2     focal_soft   2       433.007   0.0        better reward, safe
+2     focal_soft   5       450.450   0.0        better reward, safe
+2     focal_soft   10      449.562   5.0        comparable reward, safe
+```
+
+### 6.7 Second-task CarRun completion
+
+After `SafetyCarRun-v0-40-651.hdf5` was placed under `datasets/dsrl`, the
+planned second-task CarRun experiments were completed.
+
+#### Test A: CarRun classifier-only
+
+Command:
+
+```bash
+TASK=OfflineCarRun-v0 bash validation_experiments/scripts/run_test_a_classifier.sh
+```
+
+Results:
+
+```text
+variant          loss          ood   AUROC    AUPRC    FNR      FPR      ECE
+original         bce           hard  0.92558  0.88536  0.13206  0.17275  0.03152
+weighted_bce     weighted_bce  hard  0.92635  0.88557  0.10389  0.19884  0.05489
+focal            focal         hard  0.92649  0.88579  0.05261  0.28111  0.13474
+focal_soft       focal         soft  0.92649  0.88579  0.05261  0.28111  0.13474
+```
+
+Short conclusion:
+
+- The CarRun classifier result matches the BallRun mechanism trend.
+- Focal loss reduces false negative rate from `0.132` to `0.053`, which means
+  fewer unsafe/OOD samples are missed as IND.
+- The tradeoff is a higher false positive rate: `0.173` to `0.281`, plus worse
+  calibration.
+
+#### Test B: CarRun cost-critic separation
+
+Command:
+
+```bash
+TASK=OfflineCarRun-v0 bash validation_experiments/scripts/run_test_b_cost_critic.sh
+```
+
+Results:
+
+```text
+variant        qc_matched_gap  qc_selected_matched_gap  ood_selected_rate
+original       2.641           4.929                    0.31055
+focal_hard     3.400           7.061                    0.48680
+focal_soft     3.632           6.644                    0.48680
+no_classifier  3.654           3.055                    0.31055
+```
+
+Short conclusion:
+
+- `focal_soft` keeps a positive matched-budget OOD-vs-IND `Q_c` gap on CarRun.
+- Compared with original CCAC, `focal_soft` improves `qc_matched_gap`
+  (`2.641` to `3.632`) and selected matched gap (`4.929` to `6.644`).
+- This supports the diagnostic mechanism, but does not guarantee policy-level
+  safety.
+
+#### Test C: CarRun seed-0 50k policy comparison
+
+Original CCAC command:
+
+```bash
+TASK=OfflineCarRun-v0 SEED=0 SUFFIX=sanity50k_car_seed0 bash validation_experiments/scripts/train_original_ccac_50k.sh
+```
+
+Original run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineCarRun-v0-cost-5/CCAC_num_workers4_update_steps50000_sanity50k_car_seed0-f00b/CCAC_num_workers4_update_steps50000_sanity50k_car_seed0-f00b
+```
+
+Original multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 860.485, normalized reward 1.77175, real cost 181.00, normalized cost 181.00
+target cost 2.0:  reward 858.495, normalized reward 1.76638, real cost 181.15, normalized cost 90.575
+target cost 5.0:  reward 860.495, normalized reward 1.77178, real cost 181.25, normalized cost 36.25
+target cost 10.0: reward 858.349, normalized reward 1.76599, real cost 181.40, normalized cost 18.14
+```
+
+Focal-soft command:
+
+```bash
+cd OSRL/examples/train
+/mnt/afs/L202500188/RL-mid-pre/CCAC/.venv/bin/python train_ccac.py --task OfflineCarRun-v0 --device cuda:0 --seed 0 --update_steps 50000 --eval_every 10000 --eval_episodes 10 --batch_size 512 --num_workers 4 --classifier_loss focal --ood_mode soft --suffix test_c_focal_soft_50k_car_seed0
+```
+
+Focal-soft run directory:
+
+```text
+/mnt/afs/L202500188/RL-mid-pre/CCAC/OSRL/examples/train/logs/OfflineCarRun-v0-cost-5/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k_car_seed0-c52a/CCAC_classifier_lossfocal_num_workers4_ood_modesoft_update_steps50000_test_c_focal_soft_50k_car_seed0-c52a
+```
+
+Focal-soft in-training summary:
+
+```text
+eval/Reward 910.81026
+eval/Cost 183.5
+eval/Length 200.0
+train/best_idx 9999.0
+```
+
+Focal-soft multi-budget evaluation:
+
+```text
+target cost 1.0:  reward 915.987, normalized reward 1.92161, real cost 183.05, normalized cost 183.05
+target cost 2.0:  reward 916.502, normalized reward 1.92300, real cost 183.35, normalized cost 91.675
+target cost 5.0:  reward 910.265, normalized reward 1.90616, real cost 183.55, normalized cost 36.71
+target cost 10.0: reward 910.450, normalized reward 1.90666, real cost 182.90, normalized cost 18.29
+```
+
+CarRun policy conclusion:
+
+- This is a clear negative policy-level result for both original CCAC and
+  `focal_soft`.
+- `focal_soft` increases reward over original CCAC on CarRun, but it does not
+  reduce realized cost; both methods stay around real cost `181-184` across all
+  requested budgets.
+- The final report should therefore separate mechanism-level evidence from
+  policy-level evidence: CarRun supports Test A/B diagnostics but does not show
+  successful budget-conditioned control after this short 50k run.
+
+### 6.8 CarRun seed-1 mechanism repeat
+
+After the seed-0 CarRun policy result was negative, a short seed-1 mechanism
+repeat was run for Test A and Test B only. This checks whether the CarRun
+diagnostic improvements are seed-specific without spending another 50k
+full-policy run.
+
+#### Test A: CarRun classifier-only, seed 1
+
+Command:
+
+```bash
+TASK=OfflineCarRun-v0 SEED=1 VARIANTS="original ours_focal_soft" \
+  OUTPUT_DIR=validation_experiments/outputs/test_a_carrun_seed1 \
+  bash validation_experiments/scripts/run_test_a_classifier.sh
+```
+
+Results:
+
+```text
+variant       AUROC    AUPRC    FNR      FPR      ECE      accuracy
+original      0.92868  0.89186  0.18108  0.12899  0.01671  0.84945
+focal_soft    0.92992  0.89303  0.06185  0.25883  0.12755  0.82270
+```
+
+Short conclusion:
+
+- The seed-1 classifier repeat strengthens the Test A mechanism claim.
+- `focal_soft` reduces false negative rate from `0.181` to `0.062`, an
+  absolute reduction of about `0.119`.
+- The same tradeoff remains: false positive rate roughly doubles
+  (`0.129` to `0.259`), calibration gets worse, and accuracy drops.
+- AUROC/AUPRC are slightly higher for `focal_soft`, so the lower FNR is not
+  caused by a weaker ranker; it is mainly a threshold/tradeoff shift.
+
+#### Test B: CarRun cost-critic separation, seed 1
+
+Command:
+
+```bash
+TASK=OfflineCarRun-v0 SEED=1 VARIANTS="original focal_soft" \
+  OUTPUT_DIR=validation_experiments/outputs/test_b_carrun_seed1 \
+  bash validation_experiments/scripts/run_test_b_cost_critic.sh
+```
+
+Results:
+
+```text
+variant       qc_matched_gap  qc_selected_matched_gap  ood_selected_rate  ood_score_mean
+original      3.267           6.069                    0.2267             0.2637
+focal_soft    5.031           8.027                    0.4255             0.3652
+```
+
+Short conclusion:
+
+- The seed-1 Test B repeat also supports the diagnostic mechanism.
+- `focal_soft` increases matched-budget OOD-vs-IND `Q_c` separation
+  (`3.267` to `5.031`).
+- The selected-OOD matched gap also improves (`6.069` to `8.027`), while the
+  selected OOD rate rises from `0.227` to `0.426`.
+- This makes the CarRun mechanism result more stable across seeds, even though
+  the 50k CarRun policy run remains unsafe.
+
+Overall policy-level conclusion:
+
+- `focal_soft` has a strong seed-0 win and improves the seed-1 strict-budget
+  failure of original CCAC.
+- It is not uniformly safer: seed 2 at target cost `1` is a clear failure.
+- On `OfflineCarRun-v0`, both original CCAC and `focal_soft` fail safety
+  badly, although Test A/B still show the intended OOD-diagnostic behavior.
+- A fair final report should present the method as a lightweight extension that
+  improves classifier/OOD-cost diagnostics and can improve policy behavior, but
+  whose budget-conditioned policy stability remains incomplete.

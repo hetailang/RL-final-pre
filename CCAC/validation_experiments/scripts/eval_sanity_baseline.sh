@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="/mnt/afs/L202500188/CCAC"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 RUN_DIR="${RUN_DIR:-$REPO_ROOT/OSRL/examples/train/logs/OfflineBallRun-v0-cost-5/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff/CCAC_eval_episodes5_eval_every5000_num_workers4_update_steps10000-3dff}"
 TARGET_COSTS="${TARGET_COSTS:-[1,2,5,10]}"
@@ -10,7 +11,7 @@ DEVICE="${DEVICE:-cuda:0}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 cd "$REPO_ROOT/OSRL/examples/eval"
-source ../../../.venv/bin/activate
+PYTHON="$REPO_ROOT/.venv/bin/python"
 
 export PYTHONPATH="$REPO_ROOT/OSRL:$REPO_ROOT/DSRL:${PYTHONPATH:-}"
 export CUDA_VISIBLE_DEVICES
@@ -20,8 +21,9 @@ echo "RUN_DIR=$RUN_DIR"
 echo "TARGET_COSTS=$TARGET_COSTS"
 echo "EVAL_EPISODES=$EVAL_EPISODES"
 echo "DEVICE=$DEVICE"
+echo "PYTHON=$PYTHON"
 
-python eval_ccac.py \
+"$PYTHON" eval_ccac.py \
   --path "$RUN_DIR" \
   --target_costs "$TARGET_COSTS" \
   --eval_episodes "$EVAL_EPISODES" \

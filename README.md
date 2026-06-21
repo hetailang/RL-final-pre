@@ -1,124 +1,131 @@
-# RL Mid-term Presentation
+# RL Course Project: CCAC Extension
 
-本项目是一个基于 [Slidev](https://sli.dev/) 的课程汇报幻灯片项目。Slidev 使用 Markdown 编写幻灯片内容，并支持代码块、公式、主题、布局、导出 PDF 等功能。
+This repository contains an RL course project built on top of the original
+CCAC implementation. The project studies whether a small change to CCAC's OOD
+classifier and OOD cost-critic regularization can improve safety-relevant OOD
+handling in offline safe reinforcement learning.
 
-当前幻灯片入口文件是 `slides.md`，主题为 `@slidev/theme-seriph`。
-
-## 环境准备
-
-请先安装 Node.js，然后在项目目录中安装依赖：
-
-```bash
-npm install
-```
-
-项目依赖会安装 Slidev CLI、Seriph 主题以及 PDF 导出所需的 Chromium 支持。
-
-## 本地预览
-
-启动本地开发服务器：
-
-```bash
-npm run dev
-```
-
-命令启动后，终端会显示本地访问地址，通常是：
-
-```text
-http://localhost:3030
-```
-
-打开浏览器访问该地址即可预览幻灯片。修改 `slides.md` 后，页面会自动刷新。
-
-## 如何修改幻灯片
-
-主要修改文件：
-
-```text
-slides.md
-```
-
-Slidev 的每一页幻灯片用三个短横线分隔：
-
-```markdown
----
-
-# New Slide Title
-
-Slide content here.
-```
-
-文件开头的 YAML frontmatter 用来配置主题、标题、转场、样式等：
-
-```yaml
----
-theme: seriph
-title: Constraint-Conditioned Actor-Critic for Offline Safe RL
-transition: slide-left
-mdc: true
----
-```
-
-常见修改方式：
-
-- 修改文字内容：直接编辑 Markdown 文本。
-- 新增一页：在合适位置加入 `---`，然后写新页面内容。
-- 修改页面布局：在页面开头添加布局配置，例如 `layout: center` 或 `layout: two-cols`。
-- 编写公式：使用 LaTeX 语法，例如 `$$ ... $$`。
-- 调整样式：可以直接使用 HTML 和 Tailwind CSS 类名，例如 `<div class="mt-8 text-xl">...</div>`。
-
-## 导出 PDF
-
-项目已经配置了 PDF 导出脚本：
-
-```bash
-npm run export
-```
-
-该命令等价于：
-
-```bash
-slidev export slides.md
-```
-
-导出完成后，默认会在项目目录生成：
-
-```text
-slides-export.pdf
-```
-
-如果导出失败，通常可以先确认依赖已经安装完整：
-
-```bash
-npm install
-```
-
-然后再次运行：
-
-```bash
-npm run export
-```
-
-## 项目文件说明
+## Repository Layout
 
 ```text
 .
-├── slides.md           # 幻灯片源文件
-├── slides-export.pdf   # 已导出的 PDF
-├── package.json        # npm 脚本和依赖配置
-├── package-lock.json   # npm 依赖锁定文件
-└── pnpm-lock.yaml      # pnpm 依赖锁定文件
+├── CCAC/                         # CCAC codebase, experiment scripts, and final experiment docs
+├── final_report/                 # Final presentation Slidev project and exported PDF
+├── midterm_report/               # Midterm presentation Slidev project and exported PDF
+├── Guo ... CCAC ... .pdf         # Original CCAC paper reference
+└── README.md                     # This repository overview
 ```
 
-## 常用命令
+## Main Project Code And Experiments
+
+The main code and experiment records are under:
+
+```text
+CCAC/
+```
+
+Important entry points:
+
+- `CCAC/README.md`: original CCAC project overview plus our validation entry points.
+- `CCAC/EXPERIMENT_PLAN.md`: early small-scale validation plan.
+- `CCAC/validation_experiments/README.md`: overview of our added validation experiments.
+- `CCAC/validation_experiments/commands.md`: reproducible commands for environment checks, training, and evaluation.
+- `CCAC/validation_experiments/results.md`: raw experiment records, run directories, and conclusions.
+- `CCAC/validation_experiments/final_project_plan.md`: final-project expansion plan.
+- `CCAC/validation_experiments/final_report.md`: final written report draft.
+- `CCAC/validation_experiments/final_report_results.md`: report-ready result tables.
+- `CCAC/validation_experiments/scripts/`: runnable helper scripts for Test A/B/C.
+
+The final experiment compares original CCAC against:
+
+```text
+classifier_loss=focal
+ood_mode=soft
+focal_alpha=0.75
+focal_gamma=2.0
+```
+
+The core conclusion is intentionally cautious: the focal + soft variant improves
+OOD classifier false negative rate and matched-budget cost-critic separation,
+but full policy results are mixed. It helps in several BallRun settings and
+fails to solve policy-level safety on CarRun.
+
+## Final Presentation
+
+The final presentation is in:
+
+```text
+final_report/
+```
+
+Files:
+
+- `final_report/slides.md`: Slidev source for the final presentation.
+- `final_report/slides-export.pdf`: exported final presentation PDF.
+- `final_report/README.md`: local preview/export instructions.
+- `final_report/package.json`: Slidev commands and dependencies.
+
+Preview or export:
 
 ```bash
-# 安装依赖
+cd final_report
 npm install
-
-# 本地预览
 npm run dev
-
-# 导出 PDF
 npm run export
 ```
+
+## Midterm Presentation
+
+The midterm materials are separated into:
+
+```text
+midterm_report/
+```
+
+Files:
+
+- `midterm_report/slides.md`: Slidev source for the midterm presentation.
+- `midterm_report/slides-export.pdf`: exported midterm presentation PDF.
+- `midterm_report/rl_midterm_soft_ood_qa_bilingual.md`: bilingual Q&A notes.
+- `midterm_report/README.md`: local preview/export instructions.
+- `midterm_report/package.json`: Slidev commands and dependencies.
+
+Preview or export:
+
+```bash
+cd midterm_report
+npm install
+npm run dev
+npm run export
+```
+
+## Reference Paper
+
+The original paper is kept at the repository root:
+
+```text
+Guo 等 - 2025 - CONSTRAINT-CONDITIONED ACTOR-CRITIC FOR OFFLINE SAFE REINFORCEMENT LEARNING.pdf
+```
+
+It is the main method reference for CCAC and the baseline that this project
+extends.
+
+## Suggested Reading Order
+
+For understanding the project quickly:
+
+1. Read `final_report/slides.md` or open `final_report/slides-export.pdf`.
+2. Read `CCAC/validation_experiments/final_report_results.md` for the compact result tables.
+3. Read `CCAC/validation_experiments/results.md` for raw records and run directories.
+4. Read `CCAC/validation_experiments/commands.md` if you need to reproduce the runs.
+5. Read `midterm_report/slides.md` to see how the project evolved from the midterm plan.
+
+## Notes
+
+- The Slidev projects are intentionally separated so the midterm and final
+  presentations can be edited independently.
+- `final_report/` uses a Node-18-compatible Slidev version because the current
+  environment reports Node `v18.19.1`.
+- Large training outputs and local environments are not intended to be the main
+  reading path; the Markdown documents under `CCAC/validation_experiments/`
+  are the source of truth for experiment interpretation.
